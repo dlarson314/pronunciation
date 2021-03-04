@@ -16,75 +16,72 @@ def foo():
   print(to_ipa)
 
 
-def foo2():
-  pairs = []
+def load_cmudict():
+  to_ipa = load_key()
+
+  sound_list = []
   with open('cmudict-0.7b', encoding='latin-1') as f:
     for line in f:
       if re.match(';;;', line):
         continue
       if re.search('  ', line):
-        word, phones = line.split('  ')
-        phones = phones.split()
-        pairs += list(zip(phones[0:-1], phones[1:]))
-        #print(phones.strip())
+        word, sounds = line.split('  ')
+        sounds = sounds.split()
+        ipa = [to_ipa[re.sub('\d', '', s)] for s in sounds]
+        sound_list.append((word, sounds, ipa))
+  return sound_list
 
-  print(len(pairs))
-  hist = collections.Counter(pairs)
-  print(len(hist))
-  print(hist)
+
+def foo2_rhyme():
+  cmulist = load_cmudict()
+
+  # Sort in alphanumeric order of reversed sounds
+  cmulist.sort(key=lambda x: x[1][::-1])
+  with open('cmudict-0.7b.end_rhyme', 'w') as f:
+    for word, sounds, ipa in cmulist:
+      line = '%20s  %50s  %20s\n' % (word, ' '.join(sounds), '/'+''.join(ipa)+'/')
+      f.write(line)
+
+  # Sort in alphanumeric order of sounds
+  cmulist.sort(key=lambda x: x[1])
+  with open('cmudict-0.7b.front_rhyme', 'w') as f:
+    for word, sounds, ipa in cmulist:
+      line = '%20s  %50s  %20s\n' % (word, ' '.join(sounds), '/'+''.join(ipa)+'/')
+      f.write(line)
 
 
 def foo3():
-  to_ipa = load_key()
+  cmulist = load_cmudict()
+  cmulist.sort(key=lambda x: x[1][::-1])
 
-  phone_list = []
-  with open('cmudict-0.7b', encoding='latin-1') as f:
-    for line in f:
-      if re.match(';;;', line):
-        continue
-      if re.search('  ', line):
-        word, phones = line.split('  ')
-        phones = phones.split()
-        phone_list.append((phones[::-1], word, line))
-  phone_list.sort()
-  with open('cmudict-0.7b.end_rhyme', 'w') as f:
-    for phones, word, line in phone_list:
-      sounds = ' '.join(phones[::-1])
-      ipa = [to_ipa[re.sub('\d', '', p)] for p in phones[::-1]]
-      ipa = '/' + ''.join(ipa) + '/'
-      #f.write(line.strip() + ' /' + ''.join(ipa) + '/\n')
-      line = '%20s %50s %20s\n' % (word, sounds, ipa)
-      f.write(line)
+  old_suffix = ''
+  rhyme_sets = []
+  rhyme_set = []
+  for word, sounds, ipa in cmulist:
+    ipa = ''.join(ipa)
+    suffix = re.sub('.* (\w+[12][^1]*)', r'\1', ' '.join(sounds))
+    if suffix == old_suffix:
+      rhyme_set.append(word)
+    else:
+      rhyme_sets.append(rhyme_set)
+      if len(rhyme_set) > 500:
+        print(len(rhyme_set), rhyme_set[0:5])
+        print()
+      rhyme_set = [word]
 
-def foo4():
-  to_ipa = load_key()
+    old_suffix = suffix
 
-  phone_list = []
-  with open('cmudict-0.7b', encoding='latin-1') as f:
-    for line in f:
-      if re.match(';;;', line):
-        continue
-      if re.search('  ', line):
-        word, phones = line.split('  ')
-        phones = phones.split()
-        phone_list.append((phones, word, line))
-      for letter in line:
-        if ord(letter) > 127:
-          print(line)
-          break
-  phone_list.sort()
-  with open('cmudict-0.7b.front_rhyme', 'w') as f:
-    for phones, word, line in phone_list:
-      phones = [re.sub('\d', '', p) for p in phones]
-      ipa = [to_ipa[p] for p in phones]
-      line = '%20s %30s %20s\n' % (word, ' '.join(phones), ipa)
-      f.write(line)
+  rhyme_sets.append(rhyme_set)
 
+  hist = collections.Counter([len(s) for s in rhyme_sets])
+  #print(hist)
+  pairs = list(hist.items())
+  pairs.sort()
+  print(pairs)
 
 
 if __name__ == "__main__":
   #foo()
-  #foo2()
-  foo3()
-  #foo4()
+  foo2_rhyme()
+  #foo3()
 
